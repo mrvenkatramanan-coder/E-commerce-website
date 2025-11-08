@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ShopEasy — Demo E‑Commerce (Plain HTML)</title>
+    <style>
+        :root {
+            --accent: #4f46e5;
+            --muted: #64748b;
+            --bg: #f8fafc
+        }
+
+        body {
+            font-family: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: #0f172a
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 24px auto;
+            padding: 16px
+        }
+
+        header {
+            background: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 4px rgba(2, 6, 23, .08)
+        }
+
+        .brand {
+            font-weight: 700;
+            color: var(--accent);
+            cursor: pointer
+        }
+
+        nav {
+            display: flex;
+            gap: 8px
+        }
+
+        nav button {
+            background: transparent;
+            border: 0;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer
+        }
+
+        nav button.active {
+            background: #eef2ff
+        }
+
+        .auth {
+            display: flex;
+            gap: 8px;
+            align-items: center
+        }
+
+        .card {
+            background: #fff;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(2, 6, 23, .06)
+        }
+
+        .grid {
+            display: grid;
+            gap: 12px
+        }
+
+        .products {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px
+        }
+
+        .product {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #eef2ff
+        }
+
+        .btn {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 0;
+            cursor: pointer
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff
+        }
+
+        .btn-muted {
+            background: #fff;
+            border: 1px solid #e2e8f0
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: var(--muted)
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #e6eef7
+        }
+
+        footer {
+            margin-top: 18px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px
+        }
+
+        .small {
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .flex {
+            display: flex;
+            gap: 8px;
+            align-items: center
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px
+        }
+
+        .chip {
+            padding: 6px 8px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #0f172a;
+            font-size: 13px
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div style="display:flex;gap:12px;align-items:center">
+                <div class="brand" id="logo">ShopEasy</div>
+                <nav id="menu"></nav>
+            </div>
+            <div class="auth" id="authArea"></div>
+        </header>
+
+        <main id="main" style="margin-top:16px"></main>
+
+        <footer>
+            © <span id="year"></span> ShopEasy — Demo E‑Commerce Portal • Built with plain HTML/JS
+        </footer>
+    </div>
+
+    <script>
+        /*
+          Plain HTML demo of the React app previously provided.
+          Features implemented:
+            - Navigation (Home, Products, Orders, Wishlist, Contact Us, About Us)
+            - Registration & Login with input validation
+            - Products listing, add to wishlist, place order
+            - Orders, Wishlist, Comments & Reviews, Customer Care & Reporting
+            - Data persisted in localStorage for demo purposes
+        */
+
+        // --- Sample data ---
+        const sampleProducts = [
+            { id: 1, title: 'Wireless Headphones', price: 2499, desc: 'High quality sound' },
+            { id: 2, title: 'Mechanical Keyboard', price: 3499, desc: 'RGB backlit, tactile switches' },
+            { id: 3, title: 'Gaming Mouse', price: 1299, desc: 'High DPI sensor' },
+            { id: 4, title: 'Smart Watch', price: 5999, desc: 'Health tracking' }
+        ];
+
+        // --- localStorage helpers ---
+        const DB = {
+            users: load('ec_users', []),
+            user: load('ec_user', null),
+            wishlist: load('ec_wishlist', []),
+            orders: load('ec_orders', []),
+            reviews: load('ec_reviews', []),
+            reports: load('ec_reports', []),
+        };
+        function load(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback } catch { return fallback } }
+        function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+        // --- UI state ---
+        let route = 'home';
+        const menuItems = ['home', 'products', 'orders', 'wishlist', 'contact', 'about'];
+
+        // --- DOM refs ---
+        const menu = document.getElementById('menu');
+        const authArea = document.getElementById('authArea');
+        const main = document.getElementById('main');
+        document.getElementById('year').textContent = new Date().getFullYear();
+
+        // --- render menu & auth ---
+        function renderMenu() {
+            menu.innerHTML = '';
+            menuItems.forEach(item => {
+                const btn = document.createElement('button');
+                btn.textContent = capitalize(item);
+                btn.className = route === item ? 'active' : '';
+                btn.onclick = () => navigate(item);
+                menu.appendChild(btn);
+            });
+        }
+
+        function renderAuth() {
+            authArea.innerHTML = '';
+            if (DB.user) {
+                const hi = document.createElement('div'); hi.className = 'small'; hi.textContent = `Hi, ${DB.user.name}`;
+                const out = document.createElement('button'); out.className = 'btn btn-muted'; out.textContent = 'Logout'; out.onclick = logout;
+                authArea.appendChild(hi); authArea.appendChild(out);
+            } else {
+                const l = document.createElement('button'); l.className = 'btn btn-muted'; l.textContent = 'Login'; l.onclick = () => navigate('login');
+                const r = document.createElement('button'); r.className = 'btn btn-primary'; r.textContent = 'Register'; r.onclick = () => navigate('register');
+                authArea.appendChild(l); authArea.appendChild(r);
+            }
+        }
+
+        // --- navigation ---
+        function navigate(to) {
+            route = to; renderMenu(); renderAuth(); renderMain();
+        }
+
+        // --- helpers ---
+        function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+        function showMessage(msg, type = 'info') { alert(msg); }
+
+        // --- Auth logic & validation ---
+        function validateRegistration(form) {
+            const errors = {};
+            if (!form.name || form.name.trim().length < 3) errors.name = 'Name must be at least 3 characters.';
+            const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+            if (!form.email || !emailRe.test(form.email)) errors.email = 'Enter a valid email.';
+            const phoneRe = /^\d{10}$/;
+            if (!form.phone || !phoneRe.test(form.phone)) errors.phone = 'Phone must be 10 digits.';
+            if (!form.password || form.password.length < 6) errors.password = 'Password must be at least 6 chars.';
+            return errors;
+        }
+
+        function registerUser(form) {
+            const errs = validateRegistration(form);
+            if (Object.keys(errs).length) {
+                showMessage(Object.values(errs).join('\n')); return false;
+            }
+            if (DB.users.find(u => u.email === form.email)) { showMessage('Email already registered.'); return false; }
+            const u = { ...form, id: Date.now() }; DB.users.push(u); save('ec_users', DB.users);
+            showMessage('Registration successful — please login.'); navigate('login'); return true;
+        }
+
+        function loginUser(form) {
+            const u = DB.users.find(x => x.email === form.email && x.password === form.password);
+            if (!u) { showMessage('Invalid credentials'); return false; }
+            DB.user = { id: u.id, name: u.name, email: u.email }; save('ec_user', DB.user); renderAuth(); navigate('home'); return true;
+        }
+
+        function logout() { DB.user = null; save('ec_user', null); renderAuth(); navigate('home'); }
+
+        // --- Wishlist & Orders ---
+        function addToWishlist(product) {
+            if (!DB.user) { navigate('login'); return; }
+            if (DB.wishlist.find(i => i.userId === DB.user.id && i.product.id === product.id)) { showMessage('Already in wishlist'); return; }
+            DB.wishlist.push({ id: Date.now(), userId: DB.user.id, product }); save('ec_wishlist', DB.wishlist); showMessage('Added to wishlist');
+        }
+
+        function placeOrder(product) {
+            if (!DB.user) { navigate('login'); return; }
+            const ord = { id: Date.now(), userId: DB.user.id, product, date: new Date().toISOString(), status: 'Processing' };
+            DB.orders.unshift(ord); save('ec_orders', DB.orders); showMessage('Order placed');
+        }
+
+        function removeWishlistItem(id) { DB.wishlist = DB.wishlist.filter(i => i.id !== id); save('ec_wishlist', DB.wishlist); renderMain(); }
+
+        // --- Reviews & Reporting ---
+        function postReview(productId, rating, text) {
+            if (!DB.user) { navigate('login'); return; }
+            const r = { id: Date.now(), userId: DB.user.id, userName: DB.user.name, productId, rating, text, date: new Date().toISOString() };
+            DB.reviews.unshift(r); save('ec_reviews', DB.reviews); showMessage('Review posted');
+        }
+
+        function submitReport(type, refId, message) {
+            const rep = { id: Date.now(), type, refId, message, date: new Date().toISOString(), status: 'Open' }; DB.reports.unshift(rep); save('ec_reports', DB.reports); showMessage('Report submitted');
+        }
+
+        // --- Render main content for each route ---
+        function renderMain() {
+            main.innerHTML = '';
+            if (route === 'home') return renderHome();
+            if (route === 'products') return renderProducts();
+            if (route === 'register') return renderRegister();
+            if (route === 'login') return renderLogin();
+            if (route === 'orders') return renderOrders();
+            if (route === 'wishlist') return renderWishlist();
+            if (route === 'contact') return renderContact();
+            if (route === 'about') return renderAbout();
+            if (route === 'reviews') return renderReviews();
+            renderHome();
+        }
+
+        function renderHome() {
+            const wrap = document.createElement('div');
+            const hero = document.createElement('div'); hero.className = 'card';
+            hero.innerHTML = `<h1 style="margin:0;font-size:20px">Welcome to ShopEasy</h1><p class="small">Demo E‑Commerce portal — products, registration/login validation, wishlist, orders, reviews, customer care & reporting.</p>`;
+            wrap.appendChild(hero);
+
+            const grid = document.createElement('div'); grid.style.marginTop = '12px';
+            grid.className = 'products';
+            sampleProducts.forEach(p => {
+                const c = document.createElement('div'); c.className = 'product card';
+                c.innerHTML = `<div style='height:120px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:8px'>Image</div>
+          <div style='font-weight:600'>${p.title}</div>
+          <div class='small' style='margin-bottom:8px'>${p.desc}</div>
+          <div style='display:flex;justify-content:space-between;align-items:center'>
+            <div style='font-weight:700'>₹${p.price}</div>
+            <div style='display:flex;gap:8px'>
+              <button class='btn btn-muted' data-wish='${p.id}'>Wishlist</button>
+              <button class='btn btn-primary' data-buy='${p.id}'>Buy</button>
+            </div>
+          </div>`;
+                grid.appendChild(c);
+            });
+
+            wrap.appendChild(grid);
+            const quick = document.createElement('div'); quick.style.marginTop = '12px'; quick.className = 'card';
+            quick.innerHTML = `<div style='display:flex;gap:8px'><button class='btn btn-muted' id='btnReviews'>Comments & Reviews</button><button class='btn btn-muted' id='btnContact'>Customer Care & Reporting</button></div>`;
+            wrap.appendChild(quick);
+
+            main.appendChild(wrap);
+
+            // event delegation
+            main.querySelectorAll('[data-wish]').forEach(btn => btn.onclick = () => {
+                const id = Number(btn.getAttribute('data-wish')); const p = sampleProducts.find(x => x.id === id); addToWishlist(p); renderAuth();
+            });
+            main.querySelectorAll('[data-buy]').forEach(btn => btn.onclick = () => {
+                const id = Number(btn.getAttribute('data-buy')); const p = sampleProducts.find(x => x.id === id); placeOrder(p); renderMain();
+            });
+            document.getElementById('btnReviews').onclick = () => navigate('reviews');
+            document.getElementById('btnContact').onclick = () => navigate('contact');
+        }
+
+        function renderProducts() {
+            const wrap = document.createElement('div'); wrap.className = 'stack';
+            const header = document.createElement('div'); header.className = 'card'; header.innerHTML = '<h2 style="margin:0">Products</h2>';
+            wrap.appendChild(header);
+            const grid = document.createElement('div'); grid.className = 'products';
+            sampleProducts.forEach(p => {
+                const el = document.createElement('div'); el.className = 'product card';
+                el.innerHTML = `<div style='height:120px;background:#f8fafc;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:8px'>Image</div>
+                        <div style='font-weight:600'>${p.title}</div>
+                        <div class='small'>${p.desc}</div>
+                        <div style='display:flex;justify-content:space-between;align-items:center;margin-top:8px'>
+                          <div style='font-weight:700'>₹${p.price}</div>
+                          <div style='display:flex;gap:6px'>
+                            <button class='btn btn-muted' data-wish='${p.id}'>Wishlist</button>
+                            <button class='btn btn-primary' data-buy='${p.id}'>Buy</button>
+                          </div>
+                        </div>`;
+                grid.appendChild(el);
+            });
+            wrap.appendChild(grid);
+            main.appendChild(wrap);
+            main.querySelectorAll('[data-wish]').forEach(btn => btn.onclick = () => { const p = sampleProducts.find(x => x.id == btn.getAttribute('data-wish')); addToWishlist(p); renderMain(); });
+            main.querySelectorAll('[data-buy]').forEach(btn => btn.onclick = () => { const p = sampleProducts.find(x => x.id == btn.getAttribute('data-buy')); placeOrder(p); renderMain(); });
+        }
+
+        function renderRegister() {
+            const wrap = document.createElement('div'); wrap.className = 'card';
+            wrap.innerHTML = `<h2>Register</h2>
+        <div class='stack'>
+          <label>Name <input id='reg_name' /></label>
+          <label>Email <input id='reg_email' /></label>
+          <label>Phone <input id='reg_phone' /></label>
+          <label>Password <input id='reg_password' type='password' /></label>
+          <div style='display:flex;gap:8px'><button id='reg_submit' class='btn btn-primary'>Create Account</button><button id='reg_to_login' class='btn btn-muted'>Already have an account?</button></div>
+        </div>`;
+            main.appendChild(wrap);
+            document.getElementById('reg_submit').onclick = () => {
+                const form = { name: document.getElementById('reg_name').value, email: document.getElementById('reg_email').value, phone: document.getElementById('reg_phone').value, password: document.getElementById('reg_password').value };
+                if (registerUser(form)) { save('ec_users', DB.users); }
+            };
+            document.getElementById('reg_to_login').onclick = () => navigate('login');
+        }
+
+        function renderLogin() {
+            const wrap = document.createElement('div'); wrap.className = 'card';
+            wrap.innerHTML = `<h2>Login</h2>
+        <div class='stack'>
+          <input id='login_email' placeholder='Email' />
+          <input id='login_password' placeholder='Password' type='password' />
+          <div style='display:flex;gap:8px'><button id='login_submit' class='btn btn-primary'>Login</button><button id='login_reg' class='btn btn-muted'>Register</button></div>
+        </div>`;
+            main.appendChild(wrap);
+            document.getElementById('login_submit').onclick = () => {
+                const form = { email: document.getElementById('login_email').value, password: document.getElementById('login_password').value };
+                if (loginUser(form)) { save('ec_user', DB.user); }
+            };
+            document.getElementById('login_reg').onclick = () => navigate('register');
+        }
+
+        function renderOrders() {
+            if (!DB.user) { navigate('login'); return; }
+            const my = DB.orders.filter(o => o.userId === DB.user.id);
+            const wrap = document.createElement('div'); wrap.className = 'stack';
+            wrap.innerHTML = `<div class='card'><h2 style='margin:0'>Your Orders</h2></div>`;
+            if (my.length === 0) { const c = document.createElement('div'); c.className = 'card muted'; c.textContent = 'No orders yet.'; wrap.appendChild(c); } else {
+                my.forEach(o => {
+                    const c = document.createElement('div'); c.className = 'card'; c.innerHTML = `<div style='display:flex;justify-content:space-between;align-items:center'><div><div style='font-weight:600'>${o.product.title}</div><div class='small'>${new Date(o.date).toLocaleString()}</div></div><div class='small'>Status: <strong>${o.status}</strong></div></div>`; wrap.appendChild(c);
+                });
+            }
+            main.appendChild(wrap);
+        }
+
+        function renderWishlist() {
+            if (!DB.user) { navigate('login'); return; }
+            const items = DB.wishlist.filter(i => i.userId === DB.user.id);
+            const wrap = document.createElement('div'); wrap.className = 'stack'; wrap.innerHTML = `<div class='card'><h2 style='margin:0'>Wishlist</h2></div>`;
+            if (items.length === 0) { wrap.appendChild(Object.assign(document.createElement('div'), { className: 'card small muted', textContent: 'No wishlist items.' })); }
+            else items.forEach(i => {
+                const c = document.createElement('div'); c.className = 'card'; c.innerHTML = `<div style='display:flex;justify-content:space-between;align-items:center'><div><div style='font-weight:600'>${i.product.title}</div><div class='small'>₹${i.product.price}</div></div>
+          <div style='display:flex;gap:8px'><button class='btn btn-primary' data-buy='${i.product.id}'>Buy</button><button class='btn btn-muted' data-remove='${i.id}'>Remove</button></div></div>`;
+                wrap.appendChild(c);
+            });
+            main.appendChild(wrap);
+            main.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { const p = sampleProducts.find(x => x.id == b.getAttribute('data-buy')); placeOrder(p); renderMain(); });
+            main.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => { removeWishlistItem(Number(b.getAttribute('data-remove'))); renderMain(); });
+        }
+
+        function renderContact() {
+            const wrap = document.createElement('div'); wrap.className = 'stack';
+            wrap.innerHTML = `<div class='card'><h2 style='margin:0'>Customer Care & Reporting</h2><p class='small'>Reach out for help or submit a report about an order/product.</p></div>`;
+            const form = document.createElement('div'); form.className = 'card';
+            form.innerHTML = `
+        <label>Type<select id='r_type'><option value='order'>Order Issue</option><option value='product'>Product Issue</option><option value='other'>Other</option></select></label>
+        <label>Order ID / Product ID (optional)<input id='r_ref' /></label>
+        <label>Message<textarea id='r_msg'></textarea></label>
+        <div style='display:flex;gap:8px'><button id='r_submit' class='btn btn-primary'>Submit Report</button></div>`;
+            wrap.appendChild(form);
+            const care = document.createElement('div'); care.className = 'card'; care.innerHTML = `<h3 style='margin:0'>Customer Care Options</h3><ul class='small'><li>Live chat (demo)</li><li>Email: support@shopeasy.example</li><li>Phone: 1800-123-456</li></ul>`;
+            wrap.appendChild(care);
+            main.appendChild(wrap);
+            document.getElementById('r_submit').onclick = () => {
+                const type = document.getElementById('r_type').value; const refId = document.getElementById('r_ref').value; const message = document.getElementById('r_msg').value;
+                submitReport(type, refId, message); document.getElementById('r_ref').value = ''; document.getElementById('r_msg').value = '';
+            };
+        }
+
+        function renderAbout() {
+            const wrap = document.createElement('div'); wrap.className = 'card'; wrap.innerHTML = `<h2 style='margin:0'>About ShopEasy</h2><p class='small'>ShopEasy is a demo e-commerce portal built to demonstrate a simple web application including navigation, registration & login validation, product listing, wishlist, orders, reviews, customer care and reporting. This is educational sample code and not a production product.</p>`;
+            main.appendChild(wrap);
+        }
+
+        function renderReviews() {
+            const wrap = document.createElement('div'); wrap.className = 'stack';
+            const card = document.createElement('div'); card.className = 'card';
+            card.innerHTML = `<h2 style='margin:0'>Comments & Reviews</h2>`;
+            const actions = document.createElement('div'); actions.className = 'stack'; actions.style.padding = '12px';
+            const sel = document.createElement('select'); sel.id = 'rev_prod'; sampleProducts.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.title; sel.appendChild(o); });
+            const rating = document.createElement('input'); rating.type = 'range'; rating.min = 1; rating.max = 5; rating.value = 5; rating.id = 'rev_rate';
+            const txt = document.createElement('textarea'); txt.id = 'rev_text'; txt.placeholder = 'Write your review';
+            const post = document.createElement('button'); post.className = 'btn btn-primary'; post.textContent = 'Post Review'; post.onclick = () => { postReview(Number(sel.value), Number(rating.value), txt.value); txt.value = ''; renderMain(); };
+            actions.appendChild(sel); actions.appendChild(rating); actions.appendChild(txt); actions.appendChild(post);
+            card.appendChild(actions);
+            wrap.appendChild(card);
+
+            const list = document.createElement('div'); list.className = 'card'; list.style.marginTop = '8px';
+            if (DB.reviews.length === 0) list.textContent = 'No reviews yet.'; else {
+                DB.reviews.forEach(r => {
+                    const p = sampleProducts.find(x => x.id === r.productId) || { title: 'Unknown' };
+                    const el = document.createElement('div'); el.style.borderBottom = '1px solid #eef2ff'; el.style.padding = '8px 0'; el.innerHTML = `<div style='display:flex;justify-content:space-between'><div><strong>${r.userName || 'Anonymous'}</strong> <span class='small'>• ${p.title}</span><div class='small'>${r.text}</div></div><div class='small'>${r.rating}★</div></div><div class='small muted'>${new Date(r.date).toLocaleString()}</div>`;
+                    list.appendChild(el);
+                });
+            }
+            wrap.appendChild(list);
+            main.appendChild(wrap);
+        }
+
+        // --- initial render ---
+        renderMenu(); renderAuth(); renderMain();
+
+        // --- expose for debugging in console ---
+        window._DB = DB; window.navigate = navigate; window.sampleProducts = sampleProducts;
+
+    </script>
+</body>
+
+</html>
